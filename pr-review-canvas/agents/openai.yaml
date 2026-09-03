@@ -1,0 +1,7 @@
+interface:
+  display_name: "PR Review Canvas"
+  short_description: "Turn a PR diff into an interactive review canvas"
+  default_prompt: "Use $pr-review-canvas to turn this pull request into a self-contained HTML review canvas organized by reviewer importance."
+
+policy:
+  allow_implicit_invocation: false

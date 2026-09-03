@@ -1,0 +1,6 @@
+interface:
+  display_name: "Code Review"
+  short_description: "Review workspace or fixed-point changes"
+  default_prompt: "Use $code-review to review the current working-tree changes."
+policy:
+  allow_implicit_invocation: true

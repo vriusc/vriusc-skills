@@ -1,0 +1,6 @@
+interface:
+  display_name: "Wait What"
+  short_description: "Re-explain the last answer with missing context"
+  default_prompt: "Use $wait-what to re-pitch the last answer in plain language with the context I am missing."
+policy:
+  allow_implicit_invocation: false

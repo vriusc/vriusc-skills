@@ -1,0 +1,6 @@
+interface:
+  display_name: "Prototype"
+  short_description: "Build a disposable experiment for a design question"
+  default_prompt: "Use $prototype to test this design question with a disposable experiment."
+policy:
+  allow_implicit_invocation: true

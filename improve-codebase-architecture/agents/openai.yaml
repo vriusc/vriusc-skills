@@ -1,0 +1,6 @@
+interface:
+  display_name: "Improve Codebase Architecture"
+  short_description: "Find and explain deepening opportunities"
+  default_prompt: "Use $improve-codebase-architecture to inspect this codebase for deepening opportunities."
+policy:
+  allow_implicit_invocation: false

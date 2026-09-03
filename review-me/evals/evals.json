@@ -1,0 +1,49 @@
+{
+  "skill_name": "review-me",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Use $review-me on my plan to add team invitations. The repository already shows our roles and email provider.",
+      "expected_output": "Inspects the repository for existing facts, builds a dependency-ordered decision frontier, and asks one remaining product decision with a recommendation.",
+      "files": [],
+      "assertions": [
+        "Repository facts such as existing roles and provider contracts are inspected rather than asked back to the user.",
+        "Exactly one decision question is active at a time.",
+        "The question provides a specific recommended answer and tradeoff."
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Review this upload design. It should be fast, simple, and recover automatically when something goes wrong.",
+      "expected_output": "Turns each fuzzy quality and recovery promise into measurable child decisions and follows their consequences to closed leaves.",
+      "files": [],
+      "assertions": [
+        "Fuzzy qualities create measurable child decisions instead of being accepted as complete.",
+        "Failure, retry, partial progress, and recovery ownership are traversed as consequential branches.",
+        "Each leaf ends with an observable acceptance example."
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Use /review-me for our billing migration. Halfway through I change the rollout from all-at-once to tenant-by-tenant.",
+      "expected_output": "Reopens rollout-dependent descendants, resolves the new per-tenant failure and compatibility branches, and does not preserve stale leaf conclusions.",
+      "files": [],
+      "assertions": [
+        "A changed ancestor decision reopens every descendant whose assumptions changed.",
+        "The next question follows dependency order and asks only one decision.",
+        "Completion waits for rollout, mixed-version, recovery, and proof lenses to be accounted for."
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "We have answered the happy-path questions for a public export link. Wrap up the review now.",
+      "expected_output": "Audits every lens, resumes questioning for unresolved authorization, expiry, abuse, failure, and revocation branches, then requests final confirmation only after leaf closure.",
+      "files": [],
+      "assertions": [
+        "An empty-looking frontier is audited against every review lens before completion.",
+        "The review is labeled incomplete while consequential nodes remain open.",
+        "Final completion requires the user's confirmation of the closure record."
+      ]
+    }
+  ]
+}
