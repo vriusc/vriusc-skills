@@ -23,6 +23,12 @@ metadata:
 Global: `~/.config/skillshare/skills/` → all AI CLIs. Project: `.skillshare/skills/` → repo-local.
 Auto-detects project mode when `.skillshare/config.yaml` exists. Force with `-p` or `-g`.
 
+## Authorization boundary
+
+Command examples describe capabilities, not permission to use them. Keep read-only checks and audits read-only: do not run `sync`, `collect`, `update`, or repairs as part of a read-only request. An authorized install, update, removal, or local skill edit includes ordinary sync to the existing configured targets; it does not authorize changing the target topology or forcing conflicts. Preserve the requested skills, targets, ownership, and existing local changes, and preview sync before applying it. An installed skill being externally managed or local-only is not permission to overwrite or remove it.
+
+Non-interactive execution must preserve scope and safety checks. Prefer exact selectors and output-only flags. `--force`, `--all`, `--all-targets`, `--skip-audit`, and confirmation-skipping options are not generic remedies for prompts: verify their effects against the authorization already given. If they would overwrite content, expand scope, or bypass a security gate without explicit authorization, stop only that action and request the specific approval. Do not repeat approval for an unchanged, already-authorized action unless an action-time confirmation rule requires it.
+
 ## Recipes
 
 ### Getting Started
@@ -163,6 +169,8 @@ skillshare update --all && skillshare sync     # Update all
 skillshare update --all --diff                 # Show what changed
 ```
 ### Scripting & CI/CD
+Check command-specific flag semantics: `install --json` implies `--force --all`, so it is not merely an output-format choice. Use it only when those effects are explicitly authorized.
+
 ```bash
 skillshare status --json                       # Full status as JSON
 skillshare check --json                        # Update status as JSON
@@ -202,11 +210,11 @@ See [TROUBLESHOOTING.md](references/TROUBLESHOOTING.md) for more.
 | `ui` | ✓ (`-p`) | ✗ |
 
 ## AI Caller Rules
-1. **Non-interactive** — AI cannot answer prompts. Use `--force`, `--all`, `-s`, `--targets`, `--no-copy`, `--all-targets`, `--yes`.
+1. **Non-interactive** — Use exact selectors such as `-s` and `--targets`, and output-only flags where supported. Apply Authorization boundary before using force, broad-scope, or confirmation-skipping options.
 2. **Sync after mutations** — `install`, `uninstall`, `update`, `collect`, `target` all need `sync`.
-3. **Audit** — `install` auto-scans; CRITICAL blocks. `--force` to override, `--skip-audit` to bypass. Detects hardcoded secrets (API keys, tokens, private keys).
+3. **Audit** — `install` auto-scans; CRITICAL blocks. Preserve that gate unless the user explicitly authorizes the specific override after the finding and impact are explained. `--force` may override and `--skip-audit` bypasses scanning; neither is a default retry. Never echo detected secrets in a report.
 4. **Uninstall safely** — moves to trash (7 days). `trash restore <name>` to undo. **NEVER** `rm -rf` symlinks.
-5. **Output** — `--json` for structured data (12 commands support it, see Quick Lookup). `--no-tui` for plain text on TUI commands (`list`, `log`, `audit`, `analyze`, `diff`, `trash list`, `backup list`, `target list`). `tui off` disables TUI globally. `--dry-run` to preview.
+5. **Output** — Prefer `--json` for structured data only after checking command-specific side effects (notably `install`, above). Use `--no-tui` for plain text on TUI commands (`list`, `log`, `audit`, `analyze`, `diff`, `trash list`, `backup list`, `target list`). `tui off` changes global settings and is not a read-only output flag. Use `--dry-run` to preview supported mutations.
 6. **Node extensions in Claude Code** — `NODE_OPTIONS` is preloaded by the Claude Code harness and causes node to crash when running extensions. Always use `run: ["env", "-u", "NODE_OPTIONS", "node", "convert.js"]` in `extension.yaml` when writing extensions that use Node.js.
 
 ## References

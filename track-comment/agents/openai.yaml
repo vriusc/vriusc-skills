@@ -1,4 +1,0 @@
-interface:
-  display_name: "track-comment"
-  short_description: "拉取 GitHub 或 CodeUp 评论并对照本地代码生成 Issue"
-  default_prompt: "Use $track-comment to pull comments from this GitHub or CodeUp URL, compare them with the matching local code, and draft or revise concrete issues."

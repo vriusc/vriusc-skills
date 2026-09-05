@@ -5,15 +5,22 @@ description: Diagnosis loop for hard bugs and performance regressions. Use when 
 
 # Diagnosing Bugs
 
-A discipline for hard bugs. Skip phases only when explicitly justified.
+A discipline for hard bugs. Select the task mode before applying the phases; following its scope is not a skipped step.
+
+## Task scope
+
+- **Diagnosis, explanation, or read-only investigation:** use existing code, logs, traces, and non-mutating checks. Deliver the evidence, supported cause or ranked hypotheses, exclusions, remaining uncertainty, and the smallest repair recommendation. Do not enter the fix phase or make diagnosis completion depend on a fixed bug.
+- **An explicitly requested fix:** perform the authorized repair and its verification. A diagnosis or skill invocation alone does not authorize code changes, repository-state changes, production instrumentation, or an architecture rewrite.
+
+Choose feedback-loop techniques within that scope. New instrumentation, stress tests, or Git bisection must respect their actual operational effects and applicable authorization requirements. Temporary production instrumentation requires explicit user approval. Continue independent read-only analysis while a needed permission or artifact is unavailable.
 
 When exploring the codebase, read `CONTEXT.md` (if it exists) to get a clear mental model of the relevant modules, and check ADRs in the area you're touching.
 
 ## Phase 1 — Build a feedback loop
 
-**This is the skill.** Everything else is mechanical. If you have a **tight** pass/fail signal for the bug — one that goes red on _this_ bug — you will find the cause; bisection, hypothesis-testing, and instrumentation all just consume it. If you don't have one, no amount of staring at code will save you.
+Prioritize a **tight** pass/fail signal for the bug — one that goes red on _this_ bug. Bisection, hypothesis-testing, and instrumentation can then consume it. When no runnable reproduction is available, use the read-only analysis branch below rather than treating missing reproduction as missing evidence of every kind.
 
-Spend disproportionate effort here. **Be aggressive. Be creative. Refuse to give up.**
+Invest effort in a useful feedback loop within the authorized scope; do not repeat ineffective attempts when the next useful step is read-only analysis or requires unavailable access.
 
 ### Ways to construct one — try them in roughly this order
 
@@ -46,18 +53,18 @@ The goal is not a clean repro but a **higher reproduction rate**. Loop the trigg
 
 ### When you genuinely cannot build a loop
 
-Stop and say so explicitly. List what you tried. Ask the user for: (a) access to whatever environment reproduces it, (b) a captured artifact (HAR file, log dump, core dump, screen recording with timestamps), or (c) permission to add temporary production instrumentation. Do **not** proceed to hypothesise without a loop.
+List what you tried and why reproduction is unavailable in the current authorized environment. Continue read-only code tracing, log comparison, and falsifiable hypothesis analysis. Separate confirmed facts from hypotheses and name the evidence that could distinguish them. Ask for a specific missing artifact or access only when it is needed for the next blocked step; temporary production instrumentation still requires explicit user approval. This branch does not waive repair validation or authorize speculative edits. Never describe an untested hypothesis as a verified fix.
 
 ### Completion criterion — a tight loop that goes red
 
-Phase 1 is done when the loop is **tight** and **red-capable**: you can name **one command** — a script path, a test invocation, a curl — that you have **already run at least once** (paste the invocation and its output), and that is:
+For the runnable-reproduction branch, Phase 1 is done when the loop is **tight** and **red-capable**: you can name **one command** — a script path, a test invocation, a curl — that you have **already run at least once** (paste the invocation and its output), and that is:
 
 - [ ] **Red-capable** — it drives the actual bug code path and asserts the **user's exact symptom**, so it can go red on this bug and green once fixed. Not "runs without erroring" — it must be able to _catch this specific bug_.
 - [ ] **Deterministic** — same verdict every run (flaky bugs: a pinned, high reproduction rate, per above).
 - [ ] **Fast** — seconds, not minutes.
 - [ ] **Agent-runnable** — you can run it unattended; a human in the loop only via `scripts/hitl-loop.template.sh`.
 
-If you catch yourself reading code to build a theory before this command exists, **stop — jumping straight to a hypothesis is the exact failure this skill prevents.** No red-capable command, no Phase 2.
+Use the runnable command for Phase 2 when available. Otherwise follow the read-only analysis branch above and mark reproduction as unverified; do not claim this reproduction criterion passed.
 
 ## Phase 2 — Reproduce + minimise
 
@@ -77,7 +84,7 @@ Why bother: a minimal repro shrinks the hypothesis space in Phase 3 (fewer movin
 
 Done when **every remaining element is load-bearing** — removing any one of them makes the loop go green.
 
-Do not proceed until you have reproduced **and** minimised.
+Complete reproduction and minimisation before claiming a reproduced bug. If they are unavailable, continue only the read-only analysis branch with the limitation stated explicitly.
 
 ## Phase 3 — Hypothesise
 
@@ -93,6 +100,8 @@ If you cannot state the prediction, the hypothesis is a vibe — discard or shar
 
 ## Phase 4 — Instrument
 
+In read-only diagnosis, inspect existing instrumentation and captured evidence only. Adding instrumentation or changing a running system requires the corresponding authorization from Task scope; presenting hypotheses is not approval to mutate the system.
+
 Each probe must map to a specific prediction from Phase 3. **Change one variable at a time.**
 
 Tool preference:
@@ -106,6 +115,8 @@ Tool preference:
 **Perf branch.** For performance regressions, logs are usually wrong. Instead: establish a baseline measurement (timing harness, `performance.now()`, profiler, query plan), then bisect. Measure first, fix second.
 
 ## Phase 5 — Fix + regression test
+
+Apply this phase only when the user has requested a fix. For diagnosis-only work, deliver the diagnosis report described in Task scope instead.
 
 Write the regression test **before the fix** — but only if there is a **correct seam** for it.
 
@@ -123,12 +134,12 @@ If a correct seam exists:
 
 ## Phase 6 — Cleanup + post-mortem
 
-Required before declaring done:
+For an authorized repair, required before declaring the fix verified:
 
 - [ ] Original repro no longer reproduces (re-run the Phase 1 loop)
 - [ ] Regression test passes (or absence of seam is documented)
-- [ ] All `[DEBUG-...]` instrumentation removed (`grep` the prefix)
-- [ ] Throwaway prototypes deleted (or moved to a clearly-marked debug location)
-- [ ] The hypothesis that turned out correct is stated in the commit / PR message — so the next debugger learns
+- [ ] Temporary `[DEBUG-...]` instrumentation introduced by this task is removed; existing instrumentation is preserved
+- [ ] Reproduction materials and user-facing prototypes are listed in the report and retained; no user files or delivered artifacts are automatically deleted or moved
+- [ ] The supported cause and verification are stated in the final report; include them in a commit / PR message only when that operation is explicitly authorized
 
-**Then ask: what would have prevented this bug?** If the answer involves architectural change (no good test seam, tangled callers, hidden coupling) hand off to the `/improve-codebase-architecture` skill with the specifics. Make the recommendation **after** the fix is in, not before — you have more information now than when you started.
+If a required repair check cannot run, report completed work and remaining verification separately; do not claim a verified fix. **Then consider: what would have prevented this bug?** If the answer involves architectural change (no good test seam, tangled callers, hidden coupling), describe it as an optional follow-up recommendation with the evidence. Do not automatically invoke `/improve-codebase-architecture` or make its completion a condition of finishing this task.

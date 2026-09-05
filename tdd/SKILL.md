@@ -5,7 +5,7 @@ description: Test-driven development. Use when the user wants to build features 
 
 # Test-Driven Development
 
-TDD is the red → green loop. This skill is the reference that makes that loop produce tests worth keeping: what a good test is, where tests go, the anti-patterns, and the rules of the loop. Every section applies on every cycle — consult them before and during the loop, not after.
+TDD is the red → green loop. This skill is the reference that makes that loop produce tests worth keeping: what a good test is, where tests go, the anti-patterns, and the rules of the loop. Every section applies on every cycle — consult them before and during the loop, not after. Check that each cycle stays within confirmed seams; this does not require repeating an unchanged approval.
 
 When exploring the codebase, read `CONTEXT.md` (if it exists) so test names and interface vocabulary match the project's domain language, and respect ADRs in the area you're touching.
 
@@ -19,9 +19,9 @@ See [tests.md](tests.md) for examples and [mocking.md](mocking.md) for mocking g
 
 A **seam** is the public boundary you test at: the interface where you observe behavior without reaching inside. Tests live at seams, never against internals.
 
-**Test only at pre-agreed seams.** Before writing any test, write down the seams under test and confirm them with the user. No test is written at an unconfirmed seam. You can't test everything — agreeing the seams up front is how testing effort lands on the critical paths and complex logic instead of every edge case.
+**Test only at pre-agreed seams.** Before the first test, list the seams under test and obtain the user's explicit confirmation. Reuse confirmation already given for the same seams in this task; it covers subsequent tests at those unchanged boundaries. Ask again only for a new or materially changed seam. No test is written at an unconfirmed seam. Agreeing the seams up front keeps testing effort on critical paths and complex logic.
 
-Ask: "What's the public interface, and which seams should we test?"
+If the required seams have not yet been explicitly confirmed, ask: "What's the public interface, and which seams should we test?"
 
 ## Anti-patterns
 
