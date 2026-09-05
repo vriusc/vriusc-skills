@@ -14,6 +14,18 @@
         "SKILL.md": "sha256:d91970639e9f5c37682ac7ab60094d35f1c7c1f38d731bd56396563aee10c1d3"
       }
     },
+    "ponytail-review": {
+      "source": "github.com/DietrichGebert/ponytail/skills/ponytail-review",
+      "type": "github-subdir",
+      "installed_at": "2026-09-05T11:29:12.953866+08:00",
+      "repo_url": "https://github.com/DietrichGebert/ponytail.git",
+      "subdir": "skills/ponytail-review",
+      "version": "974d940",
+      "tree_hash": "dc6d9660c4297496a9220de377f6f7df38ab1a53",
+      "file_hashes": {
+        "SKILL.md": "sha256:40df33b58fc6ef889b93585733feb9566b76e9586efa7f376785c1e995197ac0"
+      }
+    },
     "skillshare": {
       "source": "github.com/runkids/skillshare/skills/skillshare",
       "type": "github-subdir",
