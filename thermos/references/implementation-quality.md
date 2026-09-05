@@ -8,6 +8,8 @@ disable-model-invocation: true
 
 Use this skill for an unusually strict review focused on implementation quality, maintainability, abstraction quality, and codebase health.
 
+This rubric is read-only, as required by the [Thermos entrypoint](../SKILL.md). Restructuring and other remedies below are recommendations in the review report, not instructions to edit. Complete the report without waiting for acceptance of those recommendations; modifications require a separate user request. A review verdict is not authorization to implement it.
+
 Above all, this skill should push the reviewer to be **ambitious** about code structure. Do not merely identify local cleanup opportunities. Actively search for "code judo" moves: restructurings that preserve behavior while making the implementation dramatically simpler, smaller, more direct, and more elegant.
 
 ## Core Prompt
@@ -16,8 +18,8 @@ Start from this baseline:
 
 > Perform a deep code quality audit of the current branch's changes.
 > Rethink how to structure / implement the changes to meaningfully improve code quality without impacting behavior.
-> Work to improve abstractions, modularity, reduce Spaghetti code, improve succinctness and legibility.
-> Be ambitious, if there is a clear path to improving the implementation that involves restructuring some of the codebase, go for it.
+> Identify evidence-backed improvements to abstractions, modularity, succinctness, and legibility.
+> If there is a clear path to improving the implementation through restructuring, describe it as a recommendation with its scope and rationale.
 > Be extremely thorough and rigorous. Measure twice, cut once.
 
 ## Non-Negotiable Additional Standards
@@ -143,7 +145,7 @@ Good phrases:
 
 - `this pushes the file past 1k lines. can we decompose this first?`
 - `this adds another special-case branch into an already busy flow. can we move this behind its own abstraction?`
-- `this works, but it makes the surrounding code more spaghetti. let's keep the behavior and restructure the implementation.`
+- `this works, but it makes the surrounding code more spaghetti. i recommend preserving the behavior and restructuring the implementation.`
 - `this feels like feature logic leaking into a shared path. can we isolate it?`
 - `this abstraction seems unnecessary. can we just keep the direct flow?`
 - `why does this need a cast / optional here? can we make the boundary more explicit instead?`

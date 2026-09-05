@@ -1,6 +1,6 @@
 ---
 name: implement
-description: Implement a specified coding task using test-first development where executable behavior changes, verify the result, review the final diff, and leave all changes uncommitted.
+description: Implement a specified coding task using test-first development where executable behavior changes, verify the result, review the final diff, and leave all changes uncommitted by default.
 ---
 
 # Implement
@@ -78,10 +78,14 @@ Read-only Git commands are allowed:
 - `git log`
 - `git show`
 
-Do not execute Git commands that change repository state.
-
-Leave all changes uncommitted unless the current user message explicitly
-requests a commit.
+Leave changes unstaged, uncommitted, and unpushed by default. Execute a Git
+state change only when the current user request explicitly authorizes that
+operation, and only within the authorized repository and file scope. An
+explicit request to commit includes staging only the intended changes needed
+for that commit, without asking separately for that necessary step. Preserve
+unrelated staged and unstaged changes. This exception does not authorize
+automatic staging after ordinary edits, push, branch switching, reset,
+history rewriting, or unrelated Git operations.
 
 ## Completion report
 
@@ -92,4 +96,4 @@ Report:
 3. Tests and checks executed.
 4. Exact verification results.
 5. Remaining risks.
-6. Suggested commit message without executing it.
+6. Suggested commit message when no commit is authorized; otherwise report the actual outcome of the explicitly authorized Git operation, including anything not completed.

@@ -26,6 +26,18 @@
         "SKILL.md": "sha256:40df33b58fc6ef889b93585733feb9566b76e9586efa7f376785c1e995197ac0"
       }
     },
+    "show-me": {
+      "source": "github.com/humanlayer/skills/plugins/show-me/skills/show-me",
+      "type": "github-subdir",
+      "installed_at": "2026-09-05T13:28:57.370334+08:00",
+      "repo_url": "https://github.com/humanlayer/skills.git",
+      "subdir": "plugins/show-me/skills/show-me",
+      "version": "3c26291",
+      "tree_hash": "0bdb821a21e793a4f6f82a7078c052154447e5cc",
+      "file_hashes": {
+        "SKILL.md": "sha256:bea6da70a58096730b9aeb0bae293ddf4726103a98efc9ce13c481619942a810"
+      }
+    },
     "skillshare": {
       "source": "github.com/runkids/skillshare/skills/skillshare",
       "type": "github-subdir",
