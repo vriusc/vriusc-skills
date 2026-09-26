@@ -64,7 +64,7 @@ test('a position owns its exact ordered incoming edge while the full route remai
 test('route chips provide one roving tab stop, native activation, and manual ownership', () => {
   assert.match(template, /item\.setAttribute\('data-route-journey-index', String\(index\)\)/);
   assert.match(template, /item\.setAttribute\('tabindex', index === 0 \? '0' : '-1'\)/);
-  assert.match(template, /item\.setAttribute\('aria-label', 'Route position ' \+ \(index \+ 1\) \+ ' of ' \+ ids\.length/);
+  assert.match(template, /item\.setAttribute\('aria-label', viewerText\('viewer\.route\.position'/);
   assert.match(template, /path\.addEventListener\('focusin'[\s\S]*?pauseJourney\(\{ preserveElapsed: true \}\)/);
   assert.match(template, /path\.addEventListener\('keydown'[\s\S]*?event\.key === 'ArrowRight'/);
   assert.match(template, /else if \(event\.key === 'Home'\) next = 0/);
@@ -112,12 +112,14 @@ test('motion, camera, layered Escape, mobile, print, and embed boundaries stay e
 });
 
 test('standalone export strips every journey attribute and transient pulse', () => {
-  assert.match(template, /clone\.removeAttribute\('data-route-journey'\)/);
-  assert.match(template, /clone\.querySelectorAll\('\[data-route-journey-overlay\]'\)/);
-  assert.match(template, /el\.removeAttribute\('data-route-journey-state'\)/);
-  assert.match(template, /el\.removeAttribute\('data-route-journey-current'\)/);
-  assert.match(template, /!clone\.hasAttribute\('data-route-journey'\)/);
-  assert.match(template, /canonicalStateClean[\s\S]*?\[data-route-journey-overlay\][\s\S]*?\[data-route-journey-current\]/);
+  const cleanup = template.match(/function cleanExportClone\(clone\) \{[\s\S]*?\n      \}/)?.[0] || '';
+  assert.match(template, /var canonicalStateClean = cleanExportClone\(clone\);/);
+  assert.match(cleanup, /clone\.removeAttribute\('data-route-journey'\)/);
+  assert.match(cleanup, /clone\.querySelectorAll\('\[data-route-journey-overlay\]'\)/);
+  assert.match(cleanup, /el\.removeAttribute\('data-route-journey-state'\)/);
+  assert.match(cleanup, /el\.removeAttribute\('data-route-journey-current'\)/);
+  assert.match(cleanup, /!clone\.hasAttribute\('data-route-journey'\)/);
+  assert.match(cleanup, /return !clone[\s\S]*?\[data-route-journey-overlay\][\s\S]*?\[data-route-journey-current\]/);
 });
 
 process.on('exit', () => fs.rmSync(tmp, { recursive: true, force: true }));

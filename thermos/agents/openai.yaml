@@ -1,7 +1,0 @@
-interface:
-  display_name: "Thermos"
-  short_description: "Deep correctness, security, and quality diff review"
-  default_prompt: "Use $thermos to run independent correctness/security and implementation-quality reviews of this branch, then synthesize the findings."
-
-policy:
-  allow_implicit_invocation: false

@@ -5,6 +5,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createHash } from 'node:crypto';
 import {
   ArchitectureDeltaError,
   architectureDeltaChangeRows,
@@ -18,6 +19,8 @@ const skillRoot = path.resolve(__dirname, '..');
 const cli = path.join(skillRoot, 'bin/archify.mjs');
 const baseFixture = path.join(skillRoot, 'examples/checkout-platform.base.architecture.json');
 const headFixture = path.join(skillRoot, 'examples/checkout-platform.head.architecture.json');
+const checkedArtifact = path.resolve(skillRoot, '../examples/checkout-platform-delta.html');
+const checkedReceipt = path.resolve(skillRoot, '../examples/checkout-platform-delta.receipt.json');
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'archify-delta-'));
 
 const read = (file) => JSON.parse(fs.readFileSync(file, 'utf8'));
@@ -102,6 +105,49 @@ test('canonical architecture ignores formatting, entity order, and set-like orde
   reordered.boundaries.reverse();
   reordered.boundaries.forEach((boundary) => boundary.wraps.reverse());
   assert.equal(canonicalArchitectureJson(reordered), canonicalArchitectureJson(original));
+});
+
+test('compare reports brand-only changes in the receipt and exact review target', () => {
+  const base = {
+    schema_version: 1,
+    diagram_type: 'architecture',
+    meta: { title: 'Cache' },
+    components: [{ id: 'cache', type: 'database', label: 'Cache', pos: [100, 100], size: [160, 80] }],
+  };
+  const basePath = path.join(tmp, 'brand-base.json');
+  const headPath = path.join(tmp, 'brand-head.json');
+  const output = path.join(tmp, 'brand-delta.html');
+  for (const [before, after] of [[undefined, 'redis'], ['redis', 'postgresql'], ['redis', undefined]]) {
+    const head = structuredClone(base);
+    base.components[0].brand = before;
+    head.components[0].brand = after;
+    fs.writeFileSync(basePath, JSON.stringify(base));
+    fs.writeFileSync(headPath, JSON.stringify(head));
+
+    const result = run(['compare', 'architecture', basePath, headPath, output, '--json']);
+    assert.equal(result.status, 0, result.stderr);
+    const receipt = JSON.parse(result.stdout);
+    assert.equal(receipt.summary.components.changed, 1);
+    assert.deepEqual(receipt.changes.components[0].classifications, ['semantic']);
+    assert.deepEqual(receipt.changes.components[0].changedFields, ['/brand']);
+    const html = fs.readFileSync(output, 'utf8');
+    assert.match(html, /data-change-key="component:cache"/);
+    assert.deepEqual(validateArchitectureDeltaHtml(html, receipt), { ok: true, checksPassed: 10, checkCount: 10 });
+  }
+});
+
+test('compare reports locale-only changes as presentation changes', () => {
+  const head = read(baseFixture);
+  head.meta.locale = 'zh-CN';
+  const headPath = path.join(tmp, 'locale-head.json');
+  const output = path.join(tmp, 'locale-delta.html');
+  fs.writeFileSync(headPath, JSON.stringify(head));
+
+  const result = run(['compare', 'architecture', baseFixture, headPath, output, '--json']);
+  assert.equal(result.status, 0, result.stderr);
+  const receipt = JSON.parse(result.stdout);
+  assert.equal(receipt.summary.presentationChanged, true);
+  assert.deepEqual(receipt.changes, { components: [], connections: [], boundaries: [] });
 });
 
 test('change navigator order is exact-ID based, complete, unique, and stable', () => {
@@ -194,6 +240,45 @@ test('mixed semantic and geometry relationship changes retain both exact routes'
   assert.deepEqual(validateArchitectureDeltaHtml(html, receipt), { ok: true, checksPassed: 10, checkCount: 10 });
 });
 
+test('baseline boundary title masks stay below current components and carry delta identity', () => {
+  const documentAt = (pos, pad) => ({
+    schema_version: 1,
+    diagram_type: 'architecture',
+    meta: { title: 'Boundary mask z-order', quality_profile: 'standard', viewBox: [600, 400] },
+    components: [{ id: 'node', type: 'backend', label: 'Current node', pos, size: [120, 60] }],
+    connections: [],
+    boundaries: [{ kind: 'region', label: 'Boundary label', wraps: ['node'], pad }],
+  });
+  const basePath = path.join(tmp, 'boundary-mask.base.json');
+  const headPath = path.join(tmp, 'boundary-mask.head.json');
+  const output = path.join(tmp, 'boundary-mask.delta.html');
+  fs.writeFileSync(basePath, JSON.stringify(documentAt([250, 200], 30)));
+  fs.writeFileSync(headPath, JSON.stringify(documentAt([224, 180], 40)));
+
+  const result = run(['compare', 'architecture', basePath, headPath, output, '--json']);
+  assert.equal(result.status, 0, result.stderr);
+  const html = fs.readFileSync(output, 'utf8');
+  const delta = html.match(/<section class="canvas" data-view="delta">([\s\S]*?)<\/section>/)?.[1] || '';
+  const currentComponents = delta.indexOf('<!-- Components -->');
+  const currentNode = delta.indexOf('data-node-id="node"', currentComponents);
+  const phantomMask = delta.match(
+    /<rect data-graph-role="structural-frame-label-mask"[^>]*data-delta-state="moved-from"[^>]*data-delta-boundary-state="moved-from"[^>]*data-delta-boundary-mask-key="region:Boundary label"[^>]*\/>/,
+  )?.[0];
+  const currentNodeRect = delta.slice(currentNode).match(/<rect\b[^>]*\/>/)?.[0];
+  assert.ok(phantomMask && currentNodeRect, 'expected the phantom mask and current component rect');
+  const rect = (tag) => Object.fromEntries(
+    [...tag.matchAll(/\b(x|y|width|height)="([^"]+)"/g)].map((match) => [match[1], Number(match[2])]),
+  );
+  const maskBox = rect(phantomMask);
+  const nodeBox = rect(currentNodeRect);
+  const overlaps = maskBox.x < nodeBox.x + nodeBox.width
+    && maskBox.x + maskBox.width > nodeBox.x
+    && maskBox.y < nodeBox.y + nodeBox.height
+    && maskBox.y + maskBox.height > nodeBox.y;
+  assert.equal(overlaps, true, `expected overlap: ${JSON.stringify({ maskBox, nodeBox })}`);
+  assert.ok(delta.indexOf(phantomMask) < currentNode, 'phantom mask must paint below the current component');
+});
+
 test('same-label node id changes remain one removal plus one addition', () => {
   const base = read(baseFixture);
   const head = read(baseFixture);
@@ -224,6 +309,40 @@ test('repository mismatch fails and verified matching revisions remain evidence-
   const receipt = compareArchitecture(base, head, { baseVerified: true, headVerified: true });
   assert.equal(receipt.proofLevel, 'revision-pinned');
   assert.equal(receipt.summary.provenanceChanged, true);
+});
+
+test('portable compare retains link settings and uses the same repository identity rules', () => {
+  const base = read(baseFixture);
+  const head = read(headFixture);
+  base.meta.repository = { url: 'https://git.internal/Team/Services/repo.git', revision: 'a'.repeat(40), link_mode: 'local-only' };
+  head.meta.repository = { url: 'https://git.internal:443/Team/Services/repo.git', revision: 'b'.repeat(40), link_mode: 'local-only' };
+  const canonical = JSON.parse(canonicalArchitectureJson(base));
+  assert.equal(canonical.meta.repository.link_mode, 'local-only');
+  assert.equal(canonical.meta.repository.url, 'https://git.internal/Team/Services/repo.git');
+  assert.equal(compareArchitecture(base, head, { baseVerified: true, headVerified: true }).proofLevel, 'revision-pinned');
+  head.meta.repository.url = 'https://git.internal/team/Services/repo.git';
+  assert.throws(() => compareArchitecture(base, head), (error) => error.code === 'delta/repository-mismatch');
+  base.meta.repository = { url: 'https://gitee.com/Team/repo', revision: 'a'.repeat(40), provider: 'gitee' };
+  assert.equal(JSON.parse(canonicalArchitectureJson(base)).meta.repository.provider, 'gitee');
+});
+
+test('portable compare preserves literal SCP paths and rejects different Git locations', () => {
+  const base = read(baseFixture);
+  const head = read(headFixture);
+  for (const [url, other] of [
+    ['git@git.internal:Team/repo', 'ssh://git@git.internal/Team/repo'],
+    ['git@git.internal:Team/repo%41', 'git@git.internal:Team/repoA'],
+    ['git@git.internal:Team/repo.git.git', 'git@git.internal:Team/repo.git'],
+  ]) {
+    base.meta.repository = { url, revision: 'a'.repeat(40), link_mode: 'local-only' };
+    head.meta.repository = { url: other, revision: 'b'.repeat(40), link_mode: 'local-only' };
+    const canonical = canonicalArchitectureJson(base);
+    assert.equal(JSON.parse(canonical).meta.repository.url, url);
+    assert.equal(canonicalArchitectureJson(JSON.parse(canonical)), canonical);
+    assert.throws(() => compareArchitecture(base, head), (error) => error.code === 'delta/repository-mismatch');
+    head.meta.repository.url = url;
+    assert.equal(compareArchitecture(base, head, { baseVerified: true, headVerified: true }).proofLevel, 'revision-pinned');
+  }
 });
 
 test('compare CLI writes a deterministic three-state artifact and complete sidecar receipt', () => {
@@ -290,6 +409,37 @@ test('compare CLI writes a deterministic three-state artifact and complete sidec
   assert.equal(receipt.completeness, 'complete');
   assert.equal(JSON.stringify(receipt).includes(tmp), false);
   assert.deepEqual(validateArchitectureDeltaHtml(firstHtml, receipt), { ok: true, checksPassed: 10, checkCount: 10 });
+});
+
+test('checked-in Checkout compare artifact is reproducible from its authoritative inputs', () => {
+  const artifact = path.join(tmp, 'checked-artifact.html');
+  const receipt = path.join(tmp, 'checked-artifact.receipt.json');
+  const result = run([
+    'compare',
+    'architecture',
+    baseFixture,
+    headFixture,
+    artifact,
+    '--receipt',
+    receipt,
+    '--quality',
+    'showcase',
+    '--json',
+  ]);
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(fs.readFileSync(artifact, 'utf8'), fs.readFileSync(checkedArtifact, 'utf8'));
+  assert.deepEqual(read(receipt), read(checkedReceipt));
+});
+
+test('compare artifact exports standalone SVG with a UTF-8 XML declaration', () => {
+  const output = path.join(tmp, 'utf8-export.html');
+  const result = run(['compare', 'architecture', baseFixture, headFixture, output, '--json']);
+  assert.equal(result.status, 0, result.stderr);
+  const html = fs.readFileSync(output, 'utf8');
+  assert.ok(
+    html.includes(`'<?xml version="1.0" encoding="UTF-8"?>\\n' + new XMLSerializer().serializeToString(clone)`),
+    'the exported standalone SVG must declare its UTF-8 encoding',
+  );
 });
 
 test('artifact validation fails closed on missing, duplicate, or self-blessed review identity', () => {
@@ -455,3 +605,101 @@ test('compare commit preflights both targets before replacing a trusted pair', (
   assert.equal(failure.diagnostics[0].code, 'delta/commit-target');
   assert.equal(failure.diagnostics[0].evidence.targetType, 'directory');
 });
+
+for (const side of ['base', 'head']) {
+  for (const initiallyValid of [true, false]) {
+    test(`compare validates captured ${side} bytes when the original becomes ${initiallyValid ? 'invalid' : 'valid'}`, () => {
+      const caseRoot = fs.mkdtempSync(path.join(tmp, 'snapshot-'));
+      const input = path.join(caseRoot, `${side}.json`);
+      const output = path.join(caseRoot, 'delta.html');
+      const receiptPath = path.join(caseRoot, 'delta.receipt.json');
+      const valid = read(side === 'base' ? baseFixture : headFixture);
+      const invalid = { ...valid, unknown_top_level_fact: true };
+      const captured = Buffer.from(JSON.stringify(initiallyValid ? valid : invalid));
+      const replacement = JSON.stringify(initiallyValid ? invalid : valid);
+      fs.writeFileSync(input, captured);
+      fs.writeFileSync(output, 'trusted html');
+      fs.writeFileSync(receiptPath, 'trusted receipt');
+      const preload = path.join(caseRoot, 'replace-after-read.cjs');
+      // 在首次读取返回时替换原文件，避免依赖定时竞争或平台专用 FIFO。
+      fs.writeFileSync(preload, `
+        const fs = require('node:fs');
+        const originalRead = fs.readFileSync;
+        fs.readFileSync = function(file, ...args) {
+          const bytes = originalRead.call(this, file, ...args);
+          if (file === ${JSON.stringify(input)}) {
+            fs.readFileSync = originalRead;
+            fs.writeFileSync(file, ${JSON.stringify(replacement)});
+          }
+          return bytes;
+        };
+      `);
+      const result = spawnSync(process.execPath, [
+        '--require', preload, cli, 'compare', 'architecture',
+        side === 'base' ? input : baseFixture,
+        side === 'head' ? input : headFixture, output, '--json',
+      ], { cwd: skillRoot, encoding: 'utf8', timeout: 30000 });
+      assert.ifError(result.error);
+      assert.equal(fs.readFileSync(input, 'utf8'), replacement);
+      const receipt = JSON.parse(result.stdout);
+      if (initiallyValid) {
+        assert.equal(result.status, 0, result.stdout + result.stderr);
+        assert.equal(receipt.ok, true);
+        assert.equal(receipt[side].rawSha256, createHash('sha256').update(captured).digest('hex'));
+        assert.equal(receipt[side].bytes, captured.byteLength);
+        assert.deepEqual(read(receiptPath), receipt);
+      } else {
+        assert.notEqual(result.status, 0);
+        assert.equal(receipt.ok, false);
+        assert.equal(receipt.diagnostics[0].code, 'schema/additionalProperties');
+        assert.equal(receipt.diagnostics[0].subject.side, side);
+        assert.equal(fs.readFileSync(output, 'utf8'), 'trusted html');
+        assert.equal(fs.readFileSync(receiptPath, 'utf8'), 'trusted receipt');
+      }
+      assert.equal(fs.readdirSync(caseRoot).some(name => name.startsWith('.archify-compare-')), false);
+    });
+  }
+}
+
+for (const side of ['base', 'head']) {
+  test(`compare reports a ${side} snapshot write failure as a preparation error`, () => {
+    const caseRoot = fs.mkdtempSync(path.join(tmp, 'snapshot-write-'));
+    const output = path.join(caseRoot, 'delta.html');
+    const receiptPath = path.join(caseRoot, 'delta.receipt.json');
+    fs.writeFileSync(output, 'trusted html');
+    fs.writeFileSync(receiptPath, 'trusted receipt');
+    const preload = path.join(caseRoot, 'fail-snapshot-write.cjs');
+    fs.writeFileSync(preload, `
+      const fs = require('node:fs');
+      const originalWrite = fs.writeFileSync;
+      fs.writeFileSync = function(file, ...args) {
+        if (String(file).endsWith(${JSON.stringify(`${side}.snapshot.json`)})) {
+          const error = new Error('simulated snapshot write failure');
+          error.code = 'ENOSPC';
+          throw error;
+        }
+        return originalWrite.call(this, file, ...args);
+      };
+    `);
+
+    const result = spawnSync(process.execPath, [
+      '--require', preload, cli, 'compare', 'architecture',
+      baseFixture, headFixture, output, '--json',
+    ], { cwd: skillRoot, encoding: 'utf8', timeout: 30000 });
+
+    assert.ifError(result.error);
+    assert.notEqual(result.status, 0);
+    const failure = JSON.parse(result.stdout);
+    assert.equal(failure.stage, 'prepare');
+    assert.equal(failure.diagnostics[0].code, 'delta/freeze-snapshot');
+    assert.equal(failure.diagnostics[0].subject.side, side);
+    assert.equal(failure.diagnostics[0].evidence.systemCode, 'ENOSPC');
+    assert.match(failure.diagnostics[0].evidence.reason, /simulated snapshot write failure/);
+    assert.deepEqual(failure.diagnostics[0].supportedFixes, [
+      'choose a writable compare output directory on the target filesystem',
+    ]);
+    assert.equal(fs.readFileSync(output, 'utf8'), 'trusted html');
+    assert.equal(fs.readFileSync(receiptPath, 'utf8'), 'trusted receipt');
+    assert.equal(fs.readdirSync(caseRoot).some(name => name.startsWith('.archify-compare-')), false);
+  });
+}

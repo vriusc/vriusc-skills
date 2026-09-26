@@ -1,40 +1,44 @@
 # vriusc-skills
 
-`vriusc-skills` 是一个面向 AI 编码代理的可复用技能集合，用于沉淀软件设计、实现、评审、调研与交付流程中的专业工作方法。仓库中的每个顶层技能目录均提供相应的 `SKILL.md`，供兼容的代理按任务需要加载和使用。
+这里是 Skillshare 的全局技能源仓库，保存当前使用的 34 个 Skill。技能按任务加载；阶段、调用时机和示例提示词见[交互式 Skill 工作流指南](./skill-workflow-guide.html)。
 
-## Skills
+## 技能索引
 
-以下简介根据各目录 `SKILL.md` 的 `description` 整理：
-
-| Skill | 用途 |
+| 常见阶段 | Skill |
 | --- | --- |
-| [`archify`](./archify/) | 创建并校验架构图、工作流图、时序图、数据流图和生命周期图，输出可探索的独立 HTML，并支持多种图片或视频格式导出。 |
-| [`architecture-review`](./architecture-review/) | 对 PR、分支、命名空间或整个项目进行系统级架构审查，检查边界、依赖、分层、ADR 合规性和模块内聚性。 |
-| [`architecture-review-greenfield`](./architecture-review-greenfield/) | 在增加重大功能前进行深度架构审查，重新审视现有技术栈并识别关键约束与驱动力。 |
-| [`code-review`](./code-review/) | 按 Standards 与 Spec 两个维度审查未提交改动，或相对于分支、标签、commit、merge-base 的代码变更。 |
-| [`codebase-design`](./codebase-design/) | 提供深模块设计的共享词汇，用于改进接口、确定 seam、提升可测试性和 AI 可导航性。 |
-| [`diagnosing-bugs`](./diagnosing-bugs/) | 为疑难缺陷和性能回退提供结构化诊断循环。 |
-| [`domain-modeling`](./domain-modeling/) | 构建和完善项目领域模型，统一领域术语，并记录架构决策。 |
-| [`frontend-design`](./frontend-design/) | 为新建或重塑界面提供有辨识度的视觉设计指导，涵盖审美方向、字体和其他关键设计选择。 |
-| [`grill-with-docs`](./grill-with-docs/) | 通过持续追问打磨计划或设计，并在过程中产出 ADR 和术语表。 |
-| [`grilling`](./grilling/) | 通过高强度追问对计划、决策或想法进行压力测试。 |
-| [`handoff`](./handoff/) | 将当前对话压缩为可供其他代理继续工作的交接文档。 |
-| [`implement`](./implement/) | 实现明确的编码任务；对可执行行为变更采用测试优先方式，完成验证和最终 diff 检查，并默认保留未提交改动。 |
-| [`improve-codebase-architecture`](./improve-codebase-architecture/) | 扫描代码库中的深模块改进机会，以可视化 HTML 报告呈现，并通过追问继续细化选定方案。 |
-| [`ponytail-review`](./ponytail-review/) | 专门审查过度工程，识别可删除的重复标准库实现、非必要依赖、推测性抽象和无实际用途的灵活性，并为每项发现给出精简替代方案。 |
-| [`pr-review-canvas`](./pr-review-canvas/) | 将 PR diff 渲染为独立 HTML 审查画布，按审查重要性组织变更，并区分样板代码、核心逻辑和复杂改动。 |
-| [`prototype`](./prototype/) | 构建一次性最小原型，用于验证逻辑、状态模型、集成可行性或 UI 方向等不确定设计问题。 |
-| [`research`](./research/) | 使用官方文档、规范、源码、论文和一方 API 等高可信一手资料研究技术或事实问题，并综合证据。 |
-| [`resolving-merge-conflicts`](./resolving-merge-conflicts/) | 处理正在进行的 Git merge 或 rebase 冲突。 |
-| [`review-me`](./review-me/) | 在用户显式调用时，以一次一个问题的只读决策树方式审查计划、设计或重要决策；代码 diff 缺陷应使用 `code-review`。 |
-| [`show-me`](./show-me/) | 使用简洁图表、代码结构草图和聚焦的 HTML 工件，帮助用户直观理解当前主题。 |
-| [`skillshare`](./skillshare/) | 从单一来源管理并同步多个 AI 工具中的 skills 和 agents，支持安装、更新、审计、同步、备份以及项目或全局配置。 |
-| [`solution-review`](./solution-review/) | 在实现前系统审查代码、配置、流程、工具或架构方案，覆盖有效性、风险、可行性、规范符合度及战略层面的决策质量。 |
-| [`tdd`](./tdd/) | 指导测试驱动开发，包括红—绿—重构流程和集成测试。 |
-| [`teach`](./teach/) | 在当前工作区内教授新的技能或概念。 |
-| [`thermos`](./thermos/) | 在用户显式调用时，对指定 diff 进行综合审查，覆盖正确性、安全性、破坏性变更、开发体验、实现质量、可维护性和结构复杂度。 |
-| [`to-questionnaire`](./to-questionnaire/) | 将自己无法完整回答的决策问题整理成问卷，交由掌握相关知识的人补充。 |
-| [`ui-ux-pro-max`](./ui-ux-pro-max/) | 为 Web、移动端和桌面端的 UI/UX 设计、构建、审查与修复提供设计情报，覆盖组件、设计系统、无障碍、交互、响应式布局、字体、色彩和图表等主题。 |
-| [`wait-what`](./wait-what/) | 当上一条信息未能清楚传达时，暂停当前讨论并要求对方重新说明。 |
-| [`web-design-guidelines`](./web-design-guidelines/) | 按 Web 界面指南审查 UI 代码，检查无障碍、UX 和通用最佳实践。 |
-| [`writing-for-agents`](./writing-for-agents/) | 指导面向代理的文档写作，包括 skills、`AGENTS.md` 和 `CLAUDE.md`。 |
+| 理解与分析 | [`show-me`](./show-me/)、[`research`](./research/)、[`diagnosing-bugs`](./diagnosing-bugs/)、[`triage`](./triage/)、[`domain-modeling`](./domain-modeling/) |
+| 方案澄清 | [`grilling`](./grilling/)、[`grill-me`](./grill-me/)、[`wayfinder`](./wayfinder/)、[`to-questionnaire`](./to-questionnaire/)、[`grill-with-docs`](./grill-with-docs/)、[`codebase-design`](./codebase-design/) |
+| 方案验证 | [`to-spec`](./to-spec/)、[`to-tickets`](./to-tickets/)、[`archify`](./archify/)、[`prototype`](./prototype/) |
+| 编码实现 | [`frontend-design`](./frontend-design/)、[`ui-ux-pro-max`](./ui-ux-pro-max/)、[`implement`](./implement/)、[`tdd`](./tdd/)、[`wizard`](./wizard/)、[`resolving-merge-conflicts`](./resolving-merge-conflicts/) |
+| 验证与审查 | [`web-design-guidelines`](./web-design-guidelines/)、[`code-review`](./code-review/)、[`improve-codebase-architecture`](./improve-codebase-architecture/) |
+| 交接与延续 | [`pr`](./pr/)、[`handoff`](./handoff/) |
+| 学习与维护 | [`skillshare`](./skillshare/)、[`ask-matt`](./ask-matt/)、[`setup-matt-pocock-skills`](./setup-matt-pocock-skills/)、[`teach`](./teach/)、[`retro`](./retro/)、[`scaffold-exercises`](./scaffold-exercises/)、[`wait-what`](./wait-what/)、[`writing-for-agents`](./writing-for-agents/) |
+
+## 来源与追踪
+
+| 上游 | 数量 | Skill |
+| --- | ---: | --- |
+| [Matt Pocock](https://github.com/mattpocock/skills) | 28 | 工程与生产力流程；最初按 `c55ee46073ed923f86ce59a5eb3b6d895095d1b7` 快照安装。 |
+| [Archify](https://github.com/tt-a1i/archify) | 1 | `archify`，跟踪 `main`。 |
+| [Anthropic](https://github.com/anthropics/skills) | 1 | `frontend-design`。 |
+| [HumanLayer](https://github.com/humanlayer/skills) | 1 | `show-me`。 |
+| [Skillshare](https://github.com/runkids/skillshare) | 1 | `skillshare`。 |
+| [UI UX Pro Max](https://github.com/nextlevelbuilder/ui-ux-pro-max-skill) | 1 | `ui-ux-pro-max`。 |
+| [Vercel](https://github.com/vercel-labs/agent-skills) | 1 | `web-design-guidelines`。 |
+
+全部 34 项都在 [`.metadata.json`](./.metadata.json) 中记录了各自的 GitHub 来源和安装版本。Skillshare 将它们作为独立技能管理；`tracked_repos` 为空是正常状态，无需再用 `--track` 克隆整仓库。本仓库自身的 `main` 分支追踪 `origin/main`，用于保存选用的技能版本、来源记录和本指南。各技能版权及许可遵循其上游项目。
+
+## 日常维护
+
+Skillshare 从本仓库同步到 `~/.agents/skills`（Codex 通用目录）和 `~/.omp/agent/skills`（OMP），两个目标都使用 `merge` 模式。修改源目录后同步；同步只分发本地版本，不会自动拉取上游更新。
+
+```bash
+skillshare status -g --json             # 查看源与目标
+skillshare check -g                     # 查看上游更新
+skillshare update code-review -g -n    # 示例：预览单项更新
+skillshare update code-review -g --diff
+skillshare sync -g                      # 分发到两个目标
+skillshare doctor --json                # 检查完整性与同步状态
+```
+
+更新前检查上游差异；按名称更新，避免一次覆盖所有技能。`skillshare update` 使用来源记录重新安装技能，可能替换对该技能所做的本地修改。暂存、提交和推送是独立的 Git 操作，只在本次任务明确授权时执行。

@@ -1,7 +1,0 @@
-interface:
-  display_name: "Solution Review"
-  short_description: "Validate a proposed solution before implementation"
-  default_prompt: "Use $solution-review to assess whether this proposed solution is correct, feasible, reversible, and operable."
-
-policy:
-  allow_implicit_invocation: false

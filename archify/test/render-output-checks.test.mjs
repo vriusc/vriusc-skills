@@ -11,9 +11,9 @@ const skillRoot = path.resolve(__dirname, '..');
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'archify-output-checks-'));
 const checker = path.join(skillRoot, 'scripts/check-render-output.mjs');
 
-function checkHtml(name, svgBody, profile = 'standard') {
+function checkHtml(name, svgBody, profile = 'standard', viewBox = '0 0 240 160') {
   const htmlPath = path.join(tmp, `${name}.html`);
-  fs.writeFileSync(htmlPath, `<!doctype html><html><body><svg viewBox="0 0 240 160" data-quality-profile="${profile}">${svgBody}</svg></body></html>`);
+  fs.writeFileSync(htmlPath, `<!doctype html><html><body><svg viewBox="${viewBox}" data-quality-profile="${profile}">${svgBody}</svg></body></html>`);
   try {
     const stdout = execFileSync('node', [checker, htmlPath], { encoding: 'utf8' });
     return { code: 0, result: JSON.parse(stdout) };
@@ -21,6 +21,79 @@ function checkHtml(name, svgBody, profile = 'standard') {
     return { code: err.status ?? 1, result: JSON.parse(String(err.stdout || '{}')) };
   }
 }
+
+test('render output check: showcase rejects node copy that becomes illegible at 1440px', () => {
+  const { code, result } = checkHtml('showcase-desktop-readability', `
+    <g data-node-id="tool-runtime">
+      <rect x="1398" y="266" width="194" height="70" rx="6" class="c-mask"/>
+      <text data-detail-anchor x="1495" y="299" class="t-primary" font-size="11">ToolRuntime</text>
+      <text data-detail="context" x="1495" y="315" class="t-muted" font-size="8.1">permissions and recovery</text>
+    </g>
+  `, 'showcase', '0 0 1994 804');
+
+  assert.notEqual(code, 0);
+  const issue = result.composition.issues.find(
+    (item) => item.code === 'composition/desktop-readability',
+  );
+  assert.equal(issue?.severity, 'error');
+  assert.equal(issue?.viewportWidth, 1440);
+  assert.ok(issue?.projectedFontPx < issue?.minimumProjectedFontPx);
+});
+
+test('render output check: compares exact projected size before rounding diagnostics', () => {
+  const sourceFontPx = 8.1;
+  const viewBoxWidth = 1260;
+  assert.ok(sourceFontPx * 930 / viewBoxWidth < 6);
+
+  const { code, result } = checkHtml('showcase-desktop-readability-borderline', `
+    <g data-node-id="tool-runtime">
+      <rect x="100" y="100" width="194" height="70" rx="6" class="c-mask"/>
+      <text data-detail="context" x="197" y="140" class="t-muted" font-size="${sourceFontPx}">permissions and recovery</text>
+    </g>
+  `, 'showcase', `0 0 ${viewBoxWidth} 804`);
+
+  assert.notEqual(code, 0);
+  const issue = result.composition.issues.find(
+    (item) => item.code === 'composition/desktop-readability',
+  );
+  assert.equal(issue?.severity, 'error');
+  assert.ok(issue?.projectedFontPx < issue?.minimumProjectedFontPx);
+});
+
+test('render output check: includes primary node labels in desktop readability', () => {
+  const { code, result } = checkHtml('showcase-primary-desktop-readability', `
+    <g data-node-id="compact-node">
+      <rect x="100" y="100" width="120" height="48" rx="6" class="c-mask"/>
+      <text data-node-label x="160" y="126" class="t-primary" font-size="8">Compact node</text>
+    </g>
+  `, 'showcase', '0 0 1300 700');
+
+  assert.notEqual(code, 0);
+  const issue = result.composition.issues.find(
+    (item) => item.code === 'composition/desktop-readability',
+  );
+  assert.equal(issue?.text, 'Compact node');
+  assert.equal(issue?.detail, 'primary');
+  assert.equal(issue?.availableDiagramWidth, 930);
+  assert.ok(issue?.projectedFontPx < issue?.minimumProjectedFontPx);
+});
+
+test('render output check: includes semantic boundary labels in desktop readability', () => {
+  const { code, result } = checkHtml('showcase-boundary-desktop-readability', `
+    <g data-graph-role="structural-frame-label">
+      <rect data-graph-role="structural-frame-label-mask" x="100" y="100" width="180" height="16" class="c-mask"/>
+      <text x="104" y="113" class="t-cloud" font-size="8.4" data-boundary-label>Disaster recovery boundary</text>
+    </g>
+  `, 'showcase', '0 0 1376 728');
+
+  assert.notEqual(code, 0);
+  const issue = result.composition.issues.find(
+    (item) => item.code === 'composition/desktop-readability',
+  );
+  assert.equal(issue?.text, 'Disaster recovery boundary');
+  assert.equal(issue?.detail, 'boundary');
+  assert.ok(issue?.projectedFontPx < issue?.minimumProjectedFontPx);
+});
 
 test('render output check: accepts orthogonal arrows away from legend', () => {
   const { code, result } = checkHtml('clean', `
@@ -360,3 +433,156 @@ test('render output check: endpoint stubs from 8px pass while cramped interior t
 });
 
 process.on('exit', () => fs.rmSync(tmp, { recursive: true, force: true }));
+
+for (const position of ['before', 'after']) {
+  test(`render output check: finite_svg ignores HTML numeric attributes ${position} SVG`, () => {
+    const htmlPath = path.join(tmp, `finite-html-${position}.html`);
+    const html = '<div x="NaN" width="Infinity"><input width="NaN"><br></div>';
+    const svg = '<svg viewBox="0 0 240 160"><rect x="10" y="10" width="20" height="20"/></svg>';
+    fs.writeFileSync(htmlPath, `<!doctype html><html><body>${position === 'before' ? html + svg : svg + html}</body></html>`);
+    const result = JSON.parse(execFileSync('node', [checker, htmlPath], { encoding: 'utf8' }));
+    const check = result.checks.find(item => item.name === 'finite_svg');
+    assert.equal(check.ok, true);
+    assert.deepEqual(check.details, []);
+  });
+}
+
+test('render output check: finite_svg ignores comments and CDATA but still checks real elements', () => {
+  const { result } = checkHtml('finite-non-elements', `
+    <!-- <rect x="NaN"/> -->
+    <![CDATA[<path d="Infinity"/>]]>
+    <rect x="12" y="20" width="50" height="40"/>
+    <circle cx="NaN" cy="20" r="5"/>
+  `);
+  const check = result.checks.find(item => item.name === 'finite_svg');
+  assert.equal(check.ok, false);
+  assert.deepEqual(check.details, ['circle cx="NaN"']);
+});
+
+test('render output check: finite_svg decodes numeric references once and reports raw evidence', () => {
+  const { result } = checkHtml('finite-encoded-values', `
+    <rect x="&#78;aN" y="&#x49;&#110;&#102;&#105;&#110;&#105;&#116;&#121;"/>
+    <circle cx="&#x4eaN" cy="&amp;#78;aN" r="10"/>
+    <path d="M 0 0 L &#x4e;aN 12"/>
+    <text x="10" y="10" data-note="&#78;aN">&#78;aN</text>
+  `);
+  const check = result.checks.find(item => item.name === 'finite_svg');
+  assert.equal(check.ok, false);
+  assert.deepEqual(check.details, [
+    'rect x="&#78;aN"',
+    'rect y="&#x49;&#110;&#102;&#105;&#110;&#105;&#116;&#121;"',
+    'path d="M 0 0 L &#x4e;aN 12"',
+  ]);
+});
+
+test('render output check: finite_svg separates foreignObject HTML from SVG geometry', () => {
+  const { result } = checkHtml('finite-foreign-object', `
+    <foreignObject x="NaN" y="0" width="100" height="100">
+      <div xmlns="http://www.w3.org/1999/xhtml" x="NaN" width="Infinity">
+        <input width="NaN"><br><div y="Infinity">HTML content</div>
+      </div>
+    </foreignObject>
+    <rect x="Infinity"/>
+  `);
+  const check = result.checks.find(item => item.name === 'finite_svg');
+  assert.equal(check.ok, false);
+  assert.deepEqual(check.details, ['foreignObject x="NaN"', 'rect x="Infinity"']);
+  const nested = checkHtml('finite-foreign-nested-svg', `
+    <foreignObject><div x="NaN"><svg><rect x="NaN"/></svg></div></foreignObject>
+  `).result.checks.find(item => item.name === 'finite_svg');
+  assert.deepEqual(nested.details, ['rect x="NaN"']);
+});
+
+test('render output check: finite_svg ignores prose that mentions NaN or Infinity', () => {
+  const { result } = checkHtml('finite-prose', `
+    <g data-node-id="solver" data-node-tag="returns a NaN leaf" aria-label="Focus Solver">
+      <title>Solver · returns a NaN leaf · Infinity guard</title>
+      <rect x="40" y="40" width="200" height="74" rx="6" class="c-mask"/>
+      <text x="140" y="70" class="t-primary" font-size="11" text-anchor="middle">Solver</text>
+      <text data-detail="fine" x="140" y="106" class="t-backend" font-size="7">returns a NaN leaf</text>
+    </g>
+    <!-- Legend -->
+    <text x="40" y="140" class="t-primary" font-size="10">Legend</text>
+  `);
+  const check = result.checks.find((item) => item.name === 'finite_svg');
+  assert.equal(check.ok, true);
+  assert.deepEqual(check.details, []);
+});
+
+test('render output check: finite_svg reports the attribute carrying a non-finite value', () => {
+  const { code, result } = checkHtml('finite-attr', `
+    <rect x="NaN" y="40" width="200" height="74" rx="6" class="c-mask"/>
+    <path d="M 20 20 L undefined 20" class="a-default" stroke-width="1.4"/>
+    <text x="140" y="Infinity" class="t-primary" font-size="11">Solver</text>
+    <!-- Legend -->
+    <text x="40" y="140" class="t-primary" font-size="10">Legend</text>
+  `);
+  assert.notEqual(code, 0);
+  const check = result.checks.find((item) => item.name === 'finite_svg');
+  assert.equal(check.ok, false);
+  assert.deepEqual(check.details, [
+    'rect x="NaN"',
+    'path d="M 20 20 L undefined 20"',
+    'text y="Infinity"',
+  ]);
+});
+
+test('render output check: finite_svg parses quoted angle brackets and HTML attribute quoting', () => {
+  const { code, result } = checkHtml('finite-attr-syntax', `
+    <rect aria-label="greater > lesser" x="NaN" y="40" width="200" height="74"/>
+    <circle cx='Infinity' cy='40' r='6'/>
+    <line x1=undefined y1=10 x2=20 y2=10/>
+  `);
+  assert.notEqual(code, 0);
+  const check = result.checks.find((item) => item.name === 'finite_svg');
+  assert.equal(check.ok, false);
+  assert.deepEqual(check.details, [
+    'rect x="NaN"',
+    'circle cx="Infinity"',
+    'line x1="undefined"',
+  ]);
+});
+
+test('render output check: finite_svg covers extended SVG numeric attributes', () => {
+  const { code, result } = checkHtml('finite-extended-attrs', `
+    <path d="M 0 0 L 10 0" pathLength="NaN"/>
+    <radialGradient fr="-Infinity"/>
+    <feGaussianBlur stdDeviation="undefined"/>
+  `);
+  assert.notEqual(code, 0);
+  const check = result.checks.find((item) => item.name === 'finite_svg');
+  assert.equal(check.ok, false);
+  assert.deepEqual(check.details, [
+    'path pathLength="NaN"',
+    'radialGradient fr="-Infinity"',
+    'feGaussianBlur stdDeviation="undefined"',
+  ]);
+});
+
+test('render output check: finite_svg covers element-specific filter numeric attributes', () => {
+  const { code, result } = checkHtml('finite-element-specific-filter-attrs', `
+    <filter id="lighting">
+      <feDiffuseLighting><fePointLight x="10" y="10" z="NaN"/></feDiffuseLighting>
+      <feSpecularLighting><feSpotLight x="10" y="10" z="-Infinity"/></feSpecularLighting>
+      <feColorMatrix type="saturate" values="undefined"/>
+    </filter>
+  `);
+  assert.notEqual(code, 0);
+  const check = result.checks.find((item) => item.name === 'finite_svg');
+  assert.equal(check.ok, false);
+  assert.deepEqual(check.details, [
+    'fePointLight z="NaN"',
+    'feSpotLight z="-Infinity"',
+    'feColorMatrix values="undefined"',
+  ]);
+});
+
+test('render output check: finite_svg keeps context-sensitive values attributes scoped', () => {
+  const { code, result } = checkHtml('finite-context-sensitive-values', `
+    <animate attributeName="data-node-tag" values="NaN;Infinity" dur="1s"/>
+  `);
+  assert.equal(code, 0);
+  const check = result.checks.find((item) => item.name === 'finite_svg');
+  assert.equal(check.ok, true);
+  assert.deepEqual(check.details, []);
+});

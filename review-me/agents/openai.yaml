@@ -1,7 +1,0 @@
-interface:
-  display_name: "Review Me"
-  short_description: "Resolve a decision tree down to every applicable leaf"
-  default_prompt: "Use $review-me to review this plan one decision at a time until every consequential leaf is resolved."
-
-policy:
-  allow_implicit_invocation: false

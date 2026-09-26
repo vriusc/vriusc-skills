@@ -3,6 +3,12 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { collectAmbiguousCorridors, collectBorderRuns, collectLabelRouteClearance, collectRouteRhythmIssues, routeBudgetMetrics } from '../renderers/shared/geometry.mjs';
+import {
+  DESKTOP_READABILITY_VIEWPORT,
+  DESKTOP_READER_DIAGRAM_WIDTH,
+  MIN_PROJECTED_NODE_TEXT_PX,
+  projectedNodeTextPx,
+} from '../renderers/shared/desktop-readability.mjs';
 
 const input = process.argv[2];
 
@@ -46,10 +52,38 @@ let composition = {
     shortEndpointSegmentCount: 0,
     shortInteriorSegmentCount: 0,
     microSegmentCount: 0,
+    desktopReadabilityIssues: 0,
+    minProjectedNodeTextPx: null,
   },
   suggestedLimits: { bendsPerRelationship: 2, stretch: 1.35, segmentPx: 16, microSegmentPx: 8 },
   issues: [],
 };
+
+const NON_FINITE_TOKEN = /\b(?:NaN|undefined|Infinity)\b/;
+// Consume comments/CDATA as whole tokens, including any tag-like prose.
+const SVG_TAG_TOKEN = /<!--[\s\S]*?(?:-->|$)|<!\[CDATA\[[\s\S]*?(?:\]\]>|$)|<(\/?)([A-Za-z][\w:-]*)(?=[\s/>])(?:[^>"']|"[^"]*"|'[^']*')*>/g;
+const HTML_VOID_ELEMENTS = new Set(['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'param', 'source', 'track', 'wbr']);
+const SVG_HTML_INTEGRATION_POINTS = new Set(['foreignobject', 'desc', 'title']);
+const HTML_ATTRIBUTE = /([A-Za-z_:][\w:.-]*)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+))/g;
+const NUMERIC_ATTRS = new Set([
+  'x', 'y', 'x1', 'y1', 'x2', 'y2', 'dx', 'dy', 'cx', 'cy', 'r', 'rx', 'ry', 'fx', 'fy',
+  'fr', 'width', 'height', 'd', 'points', 'pathlength', 'transform', 'viewbox', 'offset',
+  'opacity', 'fill-opacity', 'flood-opacity', 'stop-opacity', 'stroke-opacity', 'font-size',
+  'font-size-adjust', 'font-weight', 'letter-spacing', 'word-spacing', 'kerning', 'stroke-width',
+  'stroke-dasharray', 'stroke-dashoffset', 'stroke-miterlimit', 'textlength', 'startoffset',
+  'rotate', 'markerwidth', 'markerheight', 'refx', 'refy', 'orient', 'patterntransform',
+  'gradienttransform', 'filterres', 'stddeviation', 'basefrequency', 'numoctaves', 'seed',
+  'surfacescale', 'diffuseconstant', 'specularconstant', 'specularexponent',
+  'limitingconeangle', 'azimuth', 'elevation', 'pointsatx', 'pointsaty', 'pointsatz',
+  'kernelmatrix', 'order', 'divisor', 'bias', 'targetx', 'targety', 'kernelunitlength',
+  'scale', 'radius', 'k1', 'k2', 'k3', 'k4', 'tablevalues', 'slope', 'intercept',
+  'amplitude', 'exponent',
+]);
+const ELEMENT_NUMERIC_ATTRS = new Map([
+  ['fecolormatrix', new Set(['values'])],
+  ['fepointlight', new Set(['z'])],
+  ['fespotlight', new Set(['z'])],
+]);
 
 function addCheck(name, ok, details = []) {
   checks.push({ name, ok, details });
@@ -64,9 +98,11 @@ if (svgMatches.length === 1) {
   const svgAttrs = parseAttrs(svgRoot);
   const qualityProfile = svgAttrs['data-quality-profile'] || 'standard';
   const qualityGatesEnforced = svgAttrs['data-quality-gates'] !== 'advisory';
-  addCheck('finite_svg', !/\b(?:NaN|undefined|Infinity|-Infinity)\b/.test(svg));
+  const nonFiniteAttrs = collectNonFiniteAttrs(svg);
+  addCheck('finite_svg', nonFiniteAttrs.length === 0, nonFiniteAttrs);
   const legendStart = svg.indexOf('<!-- Legend -->');
   const beforeLegend = legendStart >= 0 ? svg.slice(0, legendStart) : svg;
+  const desktopReadabilityIssue = collectDesktopReadability(svgAttrs, beforeLegend);
   const arrows = collectArrows(beforeLegend);
   const diagonal = arrows.flatMap((arrow) => diagonalStraightSegments(arrow).map((segment) => ({ arrow, ...segment })));
   addCheck(
@@ -108,16 +144,19 @@ if (svgMatches.length === 1) {
   const corridorIsError = qualityProfile === 'showcase';
   const rhythmIsError = qualityProfile === 'showcase';
   const labelClearanceIsError = qualityProfile === 'showcase';
+  const desktopReadabilityIsError = qualityProfile === 'showcase';
   const compositionErrors = (qualityGatesEnforced ? containerBorderRuns.length : 0)
     + (crossingIsError ? relationshipCrossings.length : 0)
     + (corridorIsError ? ambiguousCorridors.length : 0)
     + (labelClearanceIsError ? labelRouteClearance.length : 0)
-    + (rhythmIsError ? routeRhythmIssues.length : 0);
+    + (rhythmIsError ? routeRhythmIssues.length : 0)
+    + (desktopReadabilityIsError && desktopReadabilityIssue ? 1 : 0);
   const compositionWarnings = (qualityGatesEnforced ? 0 : containerBorderRuns.length)
     + (crossingIsError ? 0 : relationshipCrossings.length)
     + (corridorIsError ? 0 : ambiguousCorridors.length)
     + (labelClearanceIsError ? 0 : labelRouteClearance.length)
-    + (rhythmIsError ? 0 : routeRhythmIssues.length);
+    + (rhythmIsError ? 0 : routeRhythmIssues.length)
+    + (desktopReadabilityIsError || !desktopReadabilityIssue ? 0 : 1);
   composition = {
     schemaVersion: 1,
     profile: qualityProfile,
@@ -134,6 +173,8 @@ if (svgMatches.length === 1) {
       minLabelRouteClearance: labelRouteMeasurements.length
         ? Math.round(Math.min(...labelRouteMeasurements.map((hit) => hit.clearance)) * 10) / 10
         : null,
+      desktopReadabilityIssues: desktopReadabilityIssue ? 1 : 0,
+      minProjectedNodeTextPx: desktopReadabilityIssue?.projectedFontPx ?? null,
       ...roundedRouteMetrics(routeMetrics),
     },
     suggestedLimits: { bendsPerRelationship: 2, stretch: 1.35, segmentPx: 16, microSegmentPx: 8 },
@@ -191,6 +232,20 @@ if (svgMatches.length === 1) {
         from: hit.start.map((value) => Math.round(value * 10) / 10),
         to: hit.end.map((value) => Math.round(value * 10) / 10),
       })),
+      ...(desktopReadabilityIssue ? [{
+        severity: desktopReadabilityIsError ? 'error' : 'warning',
+        code: 'composition/desktop-readability',
+        viewportWidth: DESKTOP_READABILITY_VIEWPORT.width,
+        viewportHeight: DESKTOP_READABILITY_VIEWPORT.height,
+        availableDiagramWidth: DESKTOP_READER_DIAGRAM_WIDTH,
+        viewBoxWidth: desktopReadabilityIssue.viewBoxWidth,
+        scale: desktopReadabilityIssue.scale,
+        text: desktopReadabilityIssue.text,
+        detail: desktopReadabilityIssue.detail,
+        sourceFontPx: desktopReadabilityIssue.sourceFontPx,
+        projectedFontPx: desktopReadabilityIssue.projectedFontPx,
+        minimumProjectedFontPx: MIN_PROJECTED_NODE_TEXT_PX,
+      }] : []),
     ],
   };
   addCheck(
@@ -245,7 +300,8 @@ if (svgMatches.length === 1) {
 
 const ok = checks.every((check) => check.ok) && composition.status !== 'fail';
 console.log(JSON.stringify({ ok, file: htmlPath, checks, composition }, null, 2));
-process.exit(ok ? 0 : 1);
+// Let pending stdout writes drain: large receipts are asynchronous when piped.
+process.exitCode = ok ? 0 : 1;
 
 function collectArrows(fragment) {
   const arrows = [];
@@ -590,6 +646,37 @@ function textBox(attrs, text) {
   };
 }
 
+function collectDesktopReadability(svgAttrs, fragment) {
+  const viewBox = String(svgAttrs.viewBox || '').trim().split(/[\s,]+/).map(Number);
+  const viewBoxWidth = viewBox.length === 4 ? viewBox[2] : Number.NaN;
+  if (!Number.isFinite(viewBoxWidth) || viewBoxWidth <= 0) return null;
+  const scale = Math.min(1, DESKTOP_READER_DIAGRAM_WIDTH / viewBoxWidth);
+  let worst = null;
+  for (const match of fragment.matchAll(/<text\b([^>]*)>([\s\S]*?)<\/text>/gi)) {
+    const primary = /\bdata-node-label(?:\s*=|\s|$)/i.test(match[1]);
+    const boundary = /\bdata-boundary-label(?:\s*=|\s|$)/i.test(match[1]);
+    const context = /\bdata-detail\s*=\s*"context"/i.test(match[1]);
+    if (!primary && !boundary && !context) continue;
+    const attrs = parseAttrs(match[1]);
+    const fontSize = Number.parseFloat(attrs['font-size'] || '');
+    if (!Number.isFinite(fontSize)) continue;
+    const projected = projectedNodeTextPx(fontSize, viewBoxWidth);
+    if (projected >= MIN_PROJECTED_NODE_TEXT_PX) continue;
+    const candidate = {
+      viewBoxWidth,
+      scale,
+      text: stripTags(match[2]).trim(),
+      detail: primary
+        ? 'primary'
+        : boundary ? 'boundary' : 'context',
+      sourceFontPx: fontSize,
+      projectedFontPx: projected,
+    };
+    if (!worst || candidate.projectedFontPx < worst.projectedFontPx) worst = candidate;
+  }
+  return worst;
+}
+
 function estimatedTextWidth(text, fontSize) {
   let units = 0;
   for (const char of text) units += char.charCodeAt(0) > 255 ? 1.8 : 0.62;
@@ -753,10 +840,63 @@ function padBox(box, padding) {
   };
 }
 
+// Only geometry/numeric attributes are scanned: authored prose such as node
+// tags, <title> text, aria-labels, or data-* attributes may legitimately
+// mention "NaN" or "Infinity" without any coordinate being non-finite.
+function collectNonFiniteAttrs(svg) {
+  const details = [];
+  const stack = [];
+  for (const match of svg.matchAll(SVG_TAG_TOKEN)) {
+    if (!match[2]) continue;
+    const element = match[2].toLowerCase();
+    if (match[1]) {
+      const index = stack.map(entry => entry.element).lastIndexOf(element);
+      if (index >= 0) stack.length = index;
+      continue;
+    }
+    const parent = stack[stack.length - 1];
+    const inSvg = element === 'svg'
+      || Boolean(parent?.inSvg && !SVG_HTML_INTEGRATION_POINTS.has(parent.element));
+    if (inSvg) {
+      for (const [name, value] of attrEntries(match[0])) {
+        if (!isNumericAttr(element, name) || !NON_FINITE_TOKEN.test(decodeNumericReferences(value))) continue;
+        details.push(`${match[2]} ${name}="${value}"`);
+      }
+    }
+    // HTML void elements do not open a context; SVG self-closing tags do not
+    // either. A nested <svg> inside foreignObject restores SVG checking.
+    if (!(inSvg ? /\/\s*>$/.test(match[0]) : HTML_VOID_ELEMENTS.has(element))) {
+      stack.push({ element, inSvg });
+    }
+  }
+  return details;
+}
+
+function decodeNumericReferences(value) {
+  // Numeric references can encode every letter of NaN/Infinity/undefined.
+  // Decode once, locally: other checks and diagnostic evidence keep raw values.
+  return value.replace(/&#(?:x([0-9a-f]+)|([0-9]+));?/gi, (_, hex, decimal) => {
+    const point = Number.parseInt(hex || decimal, hex ? 16 : 10);
+    return point > 0 && point <= 0x10ffff && !(point >= 0xd800 && point <= 0xdfff)
+      ? String.fromCodePoint(point) : '\uFFFD';
+  });
+}
+
+function isNumericAttr(elementName, attrName) {
+  const normalizedAttr = attrName.toLowerCase();
+  return NUMERIC_ATTRS.has(normalizedAttr)
+    || ELEMENT_NUMERIC_ATTRS.get(elementName.toLowerCase())?.has(normalizedAttr);
+}
+
+function attrEntries(tag) {
+  return [...tag.matchAll(HTML_ATTRIBUTE)].map((match) => [
+    match[1],
+    match[2] ?? match[3] ?? match[4],
+  ]);
+}
+
 function parseAttrs(tag) {
-  const attrs = {};
-  for (const match of tag.matchAll(/([\w:-]+)\s*=\s*"([^"]*)"/g)) attrs[match[1]] = match[2];
-  return attrs;
+  return Object.fromEntries(attrEntries(tag));
 }
 
 function numberAttr(attrs, name) {
