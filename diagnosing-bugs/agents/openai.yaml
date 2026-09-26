@@ -1,6 +1,3 @@
 interface:
   display_name: "Diagnosing Bugs"
-  short_description: "Diagnose difficult bugs with evidence"
-  default_prompt: "Use $diagnosing-bugs to diagnose this failure before changing code."
-policy:
-  allow_implicit_invocation: true
+  short_description: "Diagnose hard bugs and regressions"

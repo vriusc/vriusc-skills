@@ -1,6 +1,5 @@
 interface:
   display_name: "Handoff"
-  short_description: "Prepare a continuation brief for another task"
-  default_prompt: "Use $handoff to prepare a continuation brief for a fresh task."
+  short_description: "Compact a conversation into a handoff"
 policy:
   allow_implicit_invocation: false

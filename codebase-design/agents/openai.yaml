@@ -1,6 +1,3 @@
 interface:
   display_name: "Codebase Design"
-  short_description: "Design deep modules and clean test seams"
-  default_prompt: "Use $codebase-design to design a deep module for this capability."
-policy:
-  allow_implicit_invocation: true
+  short_description: "Vocabulary for deep-module design"

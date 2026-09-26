@@ -77,17 +77,19 @@ After removal, run `sync extras` to clean up orphaned links.
 
 ## extras collect
 
-Collect local (non-symlinked) files from a target back into the extras source directory.
+Collect local (non-symlinked) files from a target back into the extras source directory. Merge-mode targets get symlinks in place of collected files; copy-mode targets keep their files. Files already in source are skipped unless `--force`.
 
 ```bash
 skillshare extras collect rules
 skillshare extras collect rules --from ~/.claude/rules --dry-run
+skillshare extras collect rules --force   # overwrite source with target edits
 skillshare extras collect prompts -p
 ```
 
 | Flag | Description |
 |------|-------------|
 | `--from <path>` | Target to collect from (required if multiple targets) |
+| `--force` / `-f` | Overwrite files that already exist in source |
 | `--dry-run` | Preview without changes |
 | `-p` / `-g` | Force project / global mode |
 
@@ -100,7 +102,7 @@ skillshare sync extras              # Sync all extras
 skillshare sync extras --dry-run    # Preview
 skillshare sync extras --force      # Overwrite conflicts
 skillshare sync extras --json       # JSON output
-skillshare sync --all               # Skills + extras together
+skillshare sync --all               # Skills + agents + extras + MCP
 ```
 
 Sync modes (per-target):
@@ -140,7 +142,7 @@ extras:
 
 The `extension:` field names an extension directory under `.skillshare/extensions/` (project) or `~/.config/skillshare/extensions/` (global). It transforms each source file during sync and implies `copy` mode.
 
-For project agents, prefer native target `agents:` config. Use `extras: agents` only when you need extras-only behavior like `flatten` or `extension`.
+For project agents, prefer native target `agents:` config; it also accepts `extension:` (e.g. `agents: { extension: opencode-agents }`, implies `copy`). Use `extras: agents` only when you need extras-only behavior like `flatten`.
 
 ## Typical workflow
 
@@ -156,7 +158,7 @@ skillshare sync extras
 
 # 4. Verify
 skillshare extras list
-skillshare diff --extras
+skillshare diff --no-tui
 
 # 5. Or collect existing local files first
 skillshare extras collect rules --from ~/.claude/rules
@@ -203,9 +205,10 @@ Ready-to-copy reference implementations at `https://github.com/runkids/skillshar
 | `codex-agents` | Claude agent MD (frontmatter + body) | Codex TOML (`name`, `description`, `developer_instructions`) |
 | `gemini-commands` | Markdown command docs | Gemini CLI TOML commands |
 
-The `codex-agents` extension requires `name` and `description` frontmatter — files missing either field are skipped with an error. Non-agent files (e.g. prompts, changelogs) should be excluded from the extras source or given a `.agentignore`-style prefix.
+The `codex-agents` extension requires `name` and `description` frontmatter — files missing either field are skipped with an error. Non-agent files (e.g. prompts, changelogs) should be excluded from the extras source using the applicable extras filters; a filename prefix alone is not an ignore rule.
 
 ### Caveats
 
 - Native agents targets (`agents: { path: ... }`) do **not** support `extension:` — extras only
-- Node.js extensions break inside Claude Code because it sets `NODE_OPTIONS` to preload an internal module. Fix: `run: ["env", "-u", "NODE_OPTIONS", "node", "convert.js"]`
+- If a Node.js extension fails because inherited `NODE_OPTIONS` references an unavailable
+  preload module, clear that variable for the extension process: `run: ["env", "-u", "NODE_OPTIONS", "node", "convert.js"]`

@@ -1,7 +1,0 @@
-interface:
-  display_name: "Architecture Review"
-  short_description: "Audit system boundaries and dependency direction"
-  default_prompt: "Use $architecture-review to audit this system's boundaries, dependency direction, cycles, and ADR compliance."
-
-policy:
-  allow_implicit_invocation: false

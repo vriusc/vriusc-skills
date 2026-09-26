@@ -1,7 +1,0 @@
-interface:
-  display_name: "Architecture Review Greenfield"
-  short_description: "Challenge the stack before a major new capability"
-  default_prompt: "Use $architecture-review-greenfield to decide whether this major requirement fits the current architecture or warrants a pivot."
-
-policy:
-  allow_implicit_invocation: false
