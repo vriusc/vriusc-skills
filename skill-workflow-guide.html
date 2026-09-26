@@ -915,9 +915,9 @@ html&gt;body{padding:0}&lt;/style&gt;
     &lt;button type=&quot;button&quot; class=&quot;btn&quot; data-filter=&quot;manual&quot; aria-pressed=&quot;false&quot;&gt;仅手动调用&lt;/button&gt;
   &lt;/div&gt;
 
-  &lt;p class=&quot;text-small text-muted&quot;&gt;更新于 2026-09-27 · 当前 34 个 Skillshare 技能（28 个 Matt c55ee460 原版 + 6 个其他 GitHub 来源）。此页只列 Skillshare 管理的入口；阶段是常见入口，不是必须逐项执行的流水线。&lt;/p&gt;
+  &lt;p class=&quot;text-small text-muted&quot;&gt;更新于 2026-09-27 · 当前 35 个 Skillshare 技能（28 个 Matt c55ee460 原版 + 7 个其他 GitHub 来源）。此页只列 Skillshare 管理的入口；阶段是常见入口，不是必须逐项执行的流水线。&lt;/p&gt;
   &lt;p class=&quot;text-small text-muted&quot;&gt;可自动调用不等于授权修改。Matt 原版涉及的暂存、提交、分支操作、issue 发布和密钥写入仍受当前任务授权约束；只读请求保持只读。依赖 issue tracker 的工程流程需要先为各仓库运行 setup-matt-pocock-skills。TDD 首次测试边界、grilling 最终方案仍须确认。默认不暂存、不提交、不推送。&lt;/p&gt;
-  &lt;p class=&quot;text-small text-muted&quot;&gt;来源追踪：34 项均在 &lt;code&gt;.metadata.json&lt;/code&gt; 记录 GitHub 来源。检查 &lt;code&gt;skillshare check -g&lt;/code&gt;，预览 &lt;code&gt;skillshare update 名称 -g --dry-run&lt;/code&gt;，按项更新 &lt;code&gt;skillshare update 名称 -g --diff&lt;/code&gt;，最后 &lt;code&gt;skillshare sync -g&lt;/code&gt;。更新不会自动执行。&lt;/p&gt;
+  &lt;p class=&quot;text-small text-muted&quot;&gt;来源追踪：35 项均在 &lt;code&gt;.metadata.json&lt;/code&gt; 记录 GitHub 来源。检查 &lt;code&gt;skillshare check -g&lt;/code&gt;，预览 &lt;code&gt;skillshare update 名称 -g --dry-run&lt;/code&gt;，按项更新 &lt;code&gt;skillshare update 名称 -g --diff&lt;/code&gt;，最后 &lt;code&gt;skillshare sync -g&lt;/code&gt;。更新不会自动执行。&lt;/p&gt;
   &lt;div id=&quot;skill-phases&quot; aria-label=&quot;Skill 开发流程&quot;&gt;&lt;/div&gt;
 
   &lt;div class=&quot;viz-row legend text-small&quot; aria-label=&quot;图例&quot;&gt;
@@ -935,6 +935,7 @@ html&gt;body{padding:0}&lt;/style&gt;
       const phasesEl = root.querySelector(&#x27;#skill-phases&#x27;);
       const detailEl = root.querySelector(&#x27;#skill-detail&#x27;);
       const skills = [
+        {name:&#x27;deslop&#x27;, mode:&#x27;auto&#x27;, phase:&#x27;验证与审查&#x27;, when:&#x27;实现完成、提交前，对比 main 清理 AI 生成的多余注释、不必要防御、any 类型绕过和过深嵌套。会修改代码，不是只读评审；保留必要安全检查。来源：Cursor Team Kit，可按单技能追踪更新。&#x27;, prompt:&#x27;$deslop\n清理当前分支相对 main 的 AI 生成冗余，保持行为不变并运行相关验证；不要暂存、提交或推送。&#x27;},
         {name:&#x27;show-me&#x27;, mode:&#x27;auto&#x27;, phase:&#x27;理解与分析&#x27;, when:&#x27;用最小图示解释当前话题；优先调用树、伪代码、Mermaid 或 diff，复杂视觉才生成 HTML。正式架构图可选 archify。&#x27;, prompt:&#x27;$show-me\n用最简图示解释刚才讨论的流程，标出关键步骤和边界。&#x27;},
         {name:&#x27;frontend-design&#x27;, mode:&#x27;auto&#x27;, phase:&#x27;编码实现&#x27;, when:&#x27;新建或调整网页视觉方向、排版、字体和布局时；已有页面优先遵循现有设计。&#x27;, prompt:&#x27;$frontend-design\n完善这个页面的视觉设计，保持既有功能和内容范围。&#x27;},
         {name:&#x27;ui-ux-pro-max&#x27;, mode:&#x27;auto&#x27;, phase:&#x27;编码实现&#x27;, when:&#x27;需要 UI/UX、交互、配色、响应式和组件建议时；与 frontend-design 按需选择，不必每次都调用。&#x27;, prompt:&#x27;$ui-ux-pro-max\n检查并改善界面的信息层级、交互和移动端体验，沿用现有风格。&#x27;},

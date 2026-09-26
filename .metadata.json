@@ -281,6 +281,19 @@
         "agents/openai.yaml": "sha256:edebc9e4fcfe102114012575eaa9600b9b5fd08c311664f389c36e7bc717740f"
       }
     },
+    "deslop": {
+      "source": "github.com/cursor/plugins/cursor-team-kit/skills/deslop",
+      "type": "github-subdir",
+      "installed_at": "2026-09-27T05:05:57.438081+08:00",
+      "repo_url": "https://github.com/cursor/plugins.git",
+      "subdir": "cursor-team-kit/skills/deslop",
+      "version": "ecc249f",
+      "tree_hash": "ac9ba043f9dd3b3a8850de6624ec5bc12e375599",
+      "commit": "ecc249f1e306fc64ddf83c7bed16cacf7c2239db",
+      "file_hashes": {
+        "SKILL.md": "sha256:2f7b7def74af7ed11f5b44b4d32f0f91fca8c5d1f92bf2171e8d12fd33a0f810"
+      }
+    },
     "diagnosing-bugs": {
       "source": "github.com/mattpocock/skills/skills/engineering/diagnosing-bugs",
       "type": "github-subdir",
